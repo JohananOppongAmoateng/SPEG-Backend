@@ -2,7 +2,7 @@ import dotEnv from "dotenv";
 dotEnv.config(); // Load environment variables first
 
 import express from "express";
-import { connect } from "./config/db.js";
+import {  connectPostgres } from "./config/db.js";
 import cookieParser from "cookie-parser";
 import { corsOptions } from "./config/cors.js"; // This will now have access to environment variables
 import router from "./router/router.js";
@@ -26,7 +26,7 @@ app.use((err, req, res, next) => {
 });
 
 // Database setup
-await connect();
+await connectPostgres();
 
 // Router
 app.use(router);

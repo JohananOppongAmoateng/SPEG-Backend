@@ -1,9 +1,9 @@
 import fs from "fs";
 import path from "path";
 import PDFDocument from "pdfkit";
-import { Invoice, Order } from "../models/modelSchema.js";
 import { sendInvoiceEmail } from "../helpers/sendInvoice.js";
 import { fileURLToPath } from 'url';
+import { prisma } from "../utils/prisma.js";
 
 // Create a new Invoice
 export async function createInvoice(req, res) {
@@ -19,7 +19,9 @@ export async function createInvoice(req, res) {
         }
 
         // Step 1: Find the order by ID
-        const order = await Order.findById(orderId);
+        const order = await prisma.order.findUnique({
+            where: { id: orderId }
+        });
         if (!order) {
             return res.status(404).json({
                 message: "Order not found",
@@ -36,17 +38,17 @@ export async function createInvoice(req, res) {
         }
 
         // Step 2: Create and save the invoice
-        const newInvoice = new Invoice({
-            orderId,
-            farmerId,
-            totalAmount,
-            farmerName,
-            status: "Pending",
-            pdfDownloadLink: ""
+        const savedInvoice = await prisma.invoice.create({
+            data : {
+                orderId,
+                farmerId,
+                totalAmount,
+                farmerName,
+                status: "Pending",
+                pdfDownloadLink: ""
+            }
         });
-
-        const savedInvoice = await newInvoice.save();
-        const invoiceId = savedInvoice._id;
+        const invoiceId = savedInvoice.id;
 
         try {
             // Step 3: Generate PDF
@@ -69,16 +71,20 @@ export async function createInvoice(req, res) {
 
             // Step 5: Update order and invoice in parallel
             await Promise.all([
-                Order.findByIdAndUpdate(orderId, { 
-                    invoiceId: savedInvoice._id,
-                    invoiceGenerated:true,
-                    updatedAt: new Date()
+                prisma.order.update({
+                    where: { id: orderId },
+                    data: {
+                        invoiceId: savedInvoice.id,
+                        invoiceGenerated: true,
+                    }
                 }),
-                Invoice.findByIdAndUpdate(invoiceId, { 
-                    pdfDownloadLink,
-                    status: "Sent",
-                    emailSent:true,
-                    updatedAt: new Date()
+                prisma.invoice.update({
+                    where: { id: invoiceId },
+                    data: {
+                        pdfDownloadLink,
+                        status: "Sent",
+                        emailSent: true,
+                    }   
                 })
             ]);
 
@@ -91,13 +97,17 @@ export async function createInvoice(req, res) {
         } catch (error) {
             // Cleanup on failure
             await Promise.all([
-                Invoice.findByIdAndDelete(invoiceId),
-                Order.findByIdAndUpdate(orderId, { 
-                    $unset: { invoiceId: "" },
-                    updatedAt: new Date()
+                prisma.invoice.delete({
+                    where: { id: invoiceId }
+                }),
+                prisma.order.update({
+                    where: { id: orderId },
+                    data: { 
+                        invoiceId: null, // Unset the invoiceId
+                        updatedAt: new Date() // Update timestamp
+                    }
                 })
             ]);
-
             throw error; // Let the outer catch block handle it
         }
 
@@ -114,28 +124,37 @@ export async function createInvoice(req, res) {
 // Update Invoice Status (Trigger for Payment Confirmation)
 export async function updateInvoiceStatus(req, res) {
     try {
-        const { invoiceId } = req.params; // Correctly extract invoiceId
+        const { invoiceId } = req.params;
         const { status } = req.body;
 
-        // Find the invoice by ID
-        const invoice = await Invoice.findById(invoiceId);
-        if (!invoice) {
-            return res.status(404).json({ message: "Invoice not found" });
+        // Validate required fields
+        if (!status) {
+            return res.status(400).json({
+                message: "Missing required field: status",
+                required: ["status"]
+            });
         }
 
-        // Update the status and save
-        invoice.status = status;
-        await invoice.save();
+        // Find and update the invoice
+        const updatedInvoice = await prisma.invoice.update({
+            where: { id: invoiceId },
+            data: { status }
+        });
+
+        if (!updatedInvoice) {
+            return res.status(404).json({ message: "Invoice not found" });
+        }
 
         // Send success response
         res.status(200).json({
             message: "Invoice status updated successfully",
-            invoice,
+            updatedInvoice
         });
     } catch (error) {
+        console.error("Error updating invoice status:", error);
         res.status(500).json({
             message: "Error updating invoice status",
-            error: error.message, // Including error message for debugging
+            error: error.message
         });
     }
 }
@@ -144,7 +163,7 @@ export async function updateInvoiceStatus(req, res) {
 // Get All Invoices
 export async function getAllInvoices(req, res) {
     try {
-        const invoices = await Invoice.find();
+        const invoices = await prisma.invoice.findMany()
         res.status(200).json({ invoices });
     } catch (error) {
         res.status(500).json({ message: "Error fetching invoices", error });
@@ -155,7 +174,9 @@ export async function getAllInvoices(req, res) {
 export async function deleteInvoice(req, res) {
     try {
         const { invoiceId } = req.params;
-        const invoice = await Invoice.findByIdAndDelete(invoiceId);
+        const invoice = await prisma.invoice.delete({
+            where: { id: invoiceId }
+        });
         if (!invoice) {
             return res.status(404).json({ message: "Invoice not found" });
         }
@@ -170,12 +191,18 @@ export async function deleteInvoice(req, res) {
 
 export async function generateInvoicePDF({ invoiceId, farmerName }) {
     try {
-        const invoice = await Invoice.findById(invoiceId).populate({
-            path: "orderId",
-            populate: [
-                { path: "products.productId" },
-                { path: "farmerId" }
-            ]
+        const invoice = await prisma.invoice.findUnique({
+            where: { id: invoiceId },
+            include: {
+            orderId: {
+                include: {
+                products: {
+                    include: { productId: true }
+                },
+                farmerId: true
+                }
+            }
+            }
         });
 
         if (!invoice) {
@@ -218,8 +245,8 @@ export async function generateInvoicePDF({ invoiceId, farmerName }) {
         };
 
         // Calculate dynamic spacing based on content
-        const products = invoice.orderId.products;
-        const farmer = invoice.orderId.farmerId;
+        const products = invoice.order.products;
+        const farmer = invoice.order.farmer;
         const rowHeight = 18;
         const tableHeaderHeight = 20;
         const tableBodyHeight = products.length * rowHeight;

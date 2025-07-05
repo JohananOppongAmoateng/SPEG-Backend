@@ -1,3 +1,5 @@
 node_modules
 invoices
 .env
+/generated/prisma
+seed_data.js

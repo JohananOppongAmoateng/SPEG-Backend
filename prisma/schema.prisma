@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                       String     @id @default(uuid())
+  firstName               String?
+  lastName                String?
+  email                   String     @unique
+  password                String
+  farmName                String?
+  farmLocation            String?
+  telNumber               String?
+  role                    String?
+  emailVerified           Boolean    @default(false)
+  adminVerified           Boolean    @default(false)
+  refreshToken            String?
+  forgotPasswordToken     String?
+  forgotPasswordTokenExpiry DateTime?
+  verifyToken             String?
+  verifyTokenExpiry       DateTime?
+  orders                  Order[]    @relation("FarmerOrders")
+  invoices                Invoice[]  @relation("FarmerInvoices")
+  createdAt               DateTime   @default(now())
+  updatedAt               DateTime   @updatedAt
+}
+
+model Product {
+  id               String          @id @default(uuid())
+  productName      String
+  stockKeepingUnit String
+  unitPrice        Float           @default(0)
+  availableStock   Int             @default(0)
+  stockBalance     Int             @default(0)
+  sellingPrice     Float           @default(0)
+  reOrderLevel     Int             @default(0)
+  transactions     Transaction[]
+  orderProducts    OrderProduct[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+}
+
+model Transaction {
+  id                  String           @id @default(uuid())
+  receivedFromIssuedTo String
+  qtyReceived         Int              @default(0)
+  qtyIssued           Int              @default(0)
+  cediConversionRate  Float            @default(0)
+  proForma            Int              @default(0)
+  invoiced            Float            @default(0)
+  collected           Int              @default(0)
+  farmerBalance       Int              @default(0)
+  availableStock      Int              @default(0)
+  stockBalance        Int              @default(0)
+  status              TransactionType
+  invoiceStatus       InvoiceStatus?
+  pickupConfirmed     Boolean          @default(false)
+  valueInEuro         Float            @default(0)
+  valueInCedi         Float            @default(0)
+  outOfOrderDate      DateTime?
+  orderId             String?
+  productId           String?
+  order               Order?           @relation(fields: [orderId], references: [id])
+  product             Product?         @relation(fields: [productId], references: [id])
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+}
+
+model Order {
+  id               String           @id @default(uuid())
+  farmerId         String
+  invoiceId        String?          @unique
+  totalCost        Float?
+  orderStatus      OrderStatus      @default(Pending)
+  awaitingPickup   PickupStatus     @default(AwaitingCollection)
+  paymentStatus    InvoiceStatus    @default(Pending)
+  invoiceGenerated Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  farmer           User         @relation("FarmerOrders", fields: [farmerId], references: [id])
+  invoice          Invoice?         @relation("OrderInvoice")
+  orderProducts    OrderProduct[]
+  transactions     Transaction[]
+}
+
+model OrderProduct {
+  id          String   @id @default(uuid())
+  orderId     String
+  productId   String
+  productName String
+  quantity    Int
+  unitPrice   Float
+  cost        Float
+  order       Order    @relation(fields: [orderId], references: [id])
+  product     Product  @relation(fields: [productId], references: [id])
+}
+
+model Invoice {
+  id              String          @id @default(uuid())
+  orderId         String          @unique
+  farmerId        String
+  currency        String          @default("Euro")
+  farmerName      String?
+  totalAmount     Float
+  outOfOrderDate  DateTime?
+  status          InvoiceStatus   @default(Pending)
+  pdfDownloadLink String          @default("")
+  emailSent       Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  order           Order           @relation("OrderInvoice", fields: [orderId], references: [id])
+  farmer          User        @relation("FarmerInvoices", fields: [farmerId], references: [id])
+}
+
+enum TransactionType {
+  Receipt
+  Issue
+}
+
+enum InvoiceStatus {
+  Pending
+  Paid
+}
+
+enum OrderStatus {
+  Pending
+  Approved
+  Rejected
+}
+
+enum PickupStatus {
+  AwaitingCollection
+  Completed
+}

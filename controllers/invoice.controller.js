@@ -3,7 +3,7 @@ import path from "path";
 import PDFDocument from "pdfkit";
 import { sendInvoiceEmail } from "../helpers/sendInvoice.js";
 import { fileURLToPath } from 'url';
-import { prisma } from "../utils/prisma.js";
+import  prisma  from "../utils/prisma.js";
 
 // Create a new Invoice
 export async function createInvoice(req, res) {

@@ -1,7 +1,7 @@
-import { User } from "../models/modelSchema.js";
 import bcryptjs from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { sendMail } from "../helpers/mailer.js";
+import prisma from "../utils/prisma.js";
 
 export async function userSignIn(req, res) {
     try {
@@ -15,7 +15,9 @@ export async function userSignIn(req, res) {
         }
 
         // Check if user exists
-        const user = await User.findOne({ email });
+        const user = await prisma.user.findUnique({
+            where: { email }
+        });
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
@@ -30,7 +32,7 @@ export async function userSignIn(req, res) {
         const tokenData = {
             user: user.firstName,
             email: user.email,
-            id: user._id,
+            id: user.id,
             role: user.role
         };
 
@@ -51,8 +53,10 @@ export async function userSignIn(req, res) {
         );
 
         // Save refresh token to database
-        user.refreshToken = refreshToken;
-        await user.save();
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { refreshToken }
+        });
 
         // Set refresh token as a cookie
         res.cookie("token", refreshToken, {
@@ -104,7 +108,9 @@ export async function userSignUp(req, res) {
             }
         }
 
-        const verifyEmail = await User.findOne({ email });
+        const verifyEmail = await prisma.user.findUnique({
+            where: { email }
+        });
 
         if (verifyEmail) {
             return res.status(500).json({ message: "User already exists" });
@@ -115,21 +121,22 @@ export async function userSignUp(req, res) {
 
         const newUserData =
             role !== "admin"
-                ? {
-                      firstName,
-                      lastName,
-                      password: hashedPwd,
-                      telNumber,
-                      farmName,
-                      farmLocation,
-                      email,
-                      role
-                  }
-                : { email, password: hashedPwd, role, firstName, lastName };
+            ? {
+                  firstName,
+                  lastName,
+                  password: hashedPwd,
+                  telNumber,
+                  farmName,
+                  farmLocation,
+                  email,
+                  role
+              }
+            : { email, password: hashedPwd, role, firstName, lastName };
 
-        // Temporarily save the user to get `_id`
-        const newUser = new User(newUserData);
-        const savedUser = await newUser.save();
+        // Save the user using Prisma
+        const savedUser = await prisma.user.create({
+            data: newUserData
+        });
 
         console.log(savedUser._id, "id");
         // If email sent successfully, return success response
@@ -169,7 +176,9 @@ export const resendEmail = async (req, res) => {
         const { email } = req.body;
 
         // Find the user by email
-        const user = await User.findOne({ email });
+        const user = await prisma.user.findUnique({
+            where: { email }
+        });
 
         // If user is not found, return 404
         if (!user) {
@@ -203,11 +212,10 @@ export const resendEmail = async (req, res) => {
 export async function adminVerify(req, res) {
     try {
         const { userId } = req.params;
-        const user = await User.findByIdAndUpdate(
-            userId,
-            { adminVerified: true },
-            { new: true }
-        );
+        const user = await prisma.user.update({
+            where: { id: userId },
+            data: { adminVerified: true }
+        });
         res.status(200).json(user);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -217,7 +225,9 @@ export async function adminVerify(req, res) {
 export async function adminDelete(req, res) {
     try {
         const { userId } = req.params;
-        const user = await User.findByIdAndDelete(userId);
+        const user = await prisma.user.delete({
+            where: { id: userId }
+        });
 
         if (!user) {
             return res.status(404).json({ message: "User not found" });
@@ -236,7 +246,7 @@ export async function adminDelete(req, res) {
 
 export async function getAllUsers(req, res) {
     try {
-        const users = await User.find();
+        const users = await prisma.user.findMany();
 
         return res.status(200).json(users);
     } catch (error) {
@@ -248,7 +258,9 @@ export async function getAllUsers(req, res) {
 export async function userDelete(req, res) {
     try {
         const { userId } = req.params;
-        const user = await User.findByIdAndDelete(userId);
+        const user = await prisma.user.delete({
+            where: { id: userId }
+            });
 
         if (!user) {
             return res.status(404).json({ message: "User not found" });
@@ -274,11 +286,15 @@ export async function userSignOut(req, res) {
         }
 
         // Find the user with the given refresh token
-        const user = await User.findOne({ refreshToken });
+        const user = await prisma.user.findFirst({
+            where: { refreshToken }
+        });
         if (user) {
             // Clear the refresh token from the database
-            user.refreshToken = "";
-            await user.save();
+            await prisma.user.update({
+                where: { id: user.id },
+                data: { refreshToken: "" }
+            });
         }
 
         // Clear the cookie regardless of whether the user was found
@@ -308,7 +324,7 @@ export async function forgotPwd(req, res) {
             return res.status(400).json({ message: "Please provide an email" });
         }
 
-        const user = await User.findOne({ email: email }); // Await the asynchronous call
+        const user = await prisma.user.findFirst({ where: { email } }); // Use Prisma to find the user by email
 
         if (!user) {
             return res.status(400).json({ message: "User not found" });
@@ -340,7 +356,9 @@ export async function resetPwd(req, res) {
         }
 
         // Find user by the token
-        let user = await User.findOne({ forgotPasswordToken: decodedToken });
+        const user = await prisma.user.findFirst({
+            where: { forgotPasswordToken: decodedToken }
+        });
 
         if (!user) {
             return res.status(401).json({ message: "Invalid token." });
@@ -367,10 +385,14 @@ export async function resetPwd(req, res) {
         const hashedPwd = await hash(password, salt);
 
         // Update the user's password and clear the token fields
-        user.password = hashedPwd;
-        user.forgotPasswordToken = undefined;
-        user.forgotPasswordTokenExpiry = undefined;
-        await user.save();
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+            password: hashedPwd,
+            forgotPasswordToken: null,
+            forgotPasswordTokenExpiry: null
+            }
+        });
 
         return res.status(200).json({
             message: "Password changed successfully.",
@@ -389,7 +411,9 @@ export async function verifyUser(req, res) {
         const decodedToken = decodeURIComponent(token);
 
         // Check if the token exists in the database
-        const user = await User.findOne({ verifyToken: decodedToken });
+        const user = await prisma.user.findFirst({
+            where: { verifyToken: decodedToken }
+        });
 
         if (!user) {
             return res.status(400).json({
@@ -406,10 +430,14 @@ export async function verifyUser(req, res) {
         }
 
         // Mark user as verified and clear the token fields
-        user.isVerified = true;
-        user.verifyToken = undefined;
-        user.verifyTokenExpiry = undefined;
-        await user.save();
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+            isVerified: true,
+            verifyToken: null,
+            verifyTokenExpiry: null
+            }
+        });
 
         return res.status(200).json({
             message: "User email verification successful.",
@@ -434,17 +462,16 @@ export async function editDetails(req, res) {
         } = req.body;
 
         // Find the user by ID and update the specified fields
-        const updatedUser = await User.findByIdAndUpdate(
-            userId,
-            {
-                firstName,
-                lastName,
-                farmName,
-                farmLocation,
-                telNumber
-            },
-            { new: true, runValidators: true } // Returns the updated document and validates input
-        );
+        const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: {
+            firstName,
+            lastName,
+            farmName,
+            farmLocation,
+            telNumber
+            }
+        });
 
         if (!updatedUser) {
             return res.status(404).json({ message: "User not found" });
@@ -467,7 +494,9 @@ export async function getUserDetails(req, res) {
         // Get the refresh token from the cookie
         const { id } = req.user;
         // Find the user by refresh token
-        const user = await User.findById(id);
+        const user = await prisma.user.findUnique({
+            where: { id }
+        });
 
         if (!user) {
             return res.status(404).json({
@@ -478,7 +507,7 @@ export async function getUserDetails(req, res) {
 
         // Remove sensitive information before sending response
         const userDetails = {
-            id: user._id,
+            id: user.id,
             firstName: user.firstName,
             lastName: user.lastName,
             email: user.email,
@@ -507,7 +536,9 @@ export async function verifyAuth(req, res) {
         // Get the refresh token from the cookie
         const { id, role } = req.user;
         // Find the user by refresh token
-        const user = await User.findById(id);
+        const user = await prisma.user.findUnique({
+            where: { id }
+        });
 
         if (!user) {
             return res.status(404).json({

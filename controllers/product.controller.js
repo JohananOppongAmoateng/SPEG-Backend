@@ -1,4 +1,4 @@
-import { Product } from "../models/modelSchema.js";
+import prisma from "../utils/prisma.js";
 
 // Add a New Product to the Inventory
 export async function addProduct(req, res) {
@@ -6,7 +6,12 @@ export async function addProduct(req, res) {
     const { productName, stockKeepingUnit, reOrderLevel } = req.body;
 
     // Check if the product already exists
-    const existingProduct = await Product.findOne({ productName });
+    const existingProduct = await prisma.product.findFirst({
+      where: {
+        productName : productName
+      }
+    }
+    );
     if (existingProduct) {
       return res
         .status(400)
@@ -14,15 +19,15 @@ export async function addProduct(req, res) {
     }
 
     // Create a new product
-    const newProduct = new Product({
-      productName,
+    const newProduct = await prisma.product.create({
+      data: {
+        productName,
       stockKeepingUnit,
       reOrderLevel,
-      transactions: [], // Initially, no transactions are recorded
-    });
-
-    // Save the new product to the database
-    await newProduct.save();
+      transactions: [],
+      }
+    }
+    )
 
     res.status(201).json({
       message: "Product added successfully",
@@ -38,7 +43,7 @@ export async function getAllProducts(req, res) {
   try {
     console.log("product route has been hit");
 
-    const allProducts = await Product.find();
+    const allProducts = await prisma.product.findMany()
     res.status(200).json({ product: allProducts }); // Use 200 for successful GET requests
   } catch (error) {
     res.status(500).json({ message: "Error getting all products", error });
@@ -55,7 +60,11 @@ export async function getOneProduct(req, res) {
       return res.status(400).json({ message: "Please provide product id" });
     }
 
-    const product = await Product.findById(id); // Assuming id is a unique identifier
+    const product = await prisma.product.findUnique({
+      where: {
+        id: id
+      }
+    }); // Assuming id is a unique identifier
 
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
@@ -78,10 +87,12 @@ export async function updateProduct(req, res) {
     if (!id) {
       return res.status(400).json({ message: "Please provide product id" });
     }
-
-    const updatedProduct = await Product.findByIdAndUpdate(id, body, {
-      new: true, // Returns the updated product
-    });
+    const updatedProduct = await prisma.product.update({
+        where: {
+          id: id
+        },
+        data : body
+      });
 
     if (!updatedProduct) {
       return res.status(404).json({ message: "Product not found" });
@@ -106,7 +117,11 @@ export async function deleteProduct(req, res) {
       return res.status(400).json({ message: "Please provide product id" });
     }
 
-    const deletedProduct = await Product.findByIdAndDelete(id); // Added await
+    const deletedProduct = await prisma.product.delete({
+      where : {
+        id: id
+      }
+    }); // Added await
 
     if (!deletedProduct) {
       return res.status(404).json({ message: "Product not found" }); // Use 404 for not found

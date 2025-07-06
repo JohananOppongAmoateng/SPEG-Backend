@@ -1,4 +1,4 @@
-import { Order, Product, Transaction } from "../models/modelSchema.js";
+import prisma from "../utils/prisma.js";
 
 // Handle Issue Transaction (Sale or Distribution to a Farmer)
 export async function issueProduct(req, res) {
@@ -12,7 +12,11 @@ export async function issueProduct(req, res) {
     }
 
     // Find the product by ID
-    const product = await Product.findById(id);
+    const product = await prisma.product.findUnique({
+      where: {
+        id: id
+      }
+    });
 
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
@@ -55,7 +59,8 @@ export async function issueProduct(req, res) {
     console.log("cediConversionRate:", cediConversionRate);
 
     // Create a new issue transaction
-    const newTransaction = {
+    const newTransaction = await prisma.transaction.create({
+      data: {
       date: new Date(),
       receivedFromIssuedTo,
       qtyIssued,
@@ -72,20 +77,22 @@ export async function issueProduct(req, res) {
       pickupConfirmed: false,
       orderId: orderId || null,
       cediConversionRate: cediConversionRate, // Store the used conversion rate
-    };
-
-    //add to transaction table
-    const transaction = new Transaction(newTransaction);
-    await transaction.save();
-
-    // Add the transaction to the product's transaction array
-    product.transactions.push(transaction);
+      product: {
+        connect: { id: product.id },
+      },
+      },
+    });
 
     // Update the product's available stock immediately
-    product.availableStock -= qtyIssued;
-
-    // Save the product with the updated stock and transaction
-    await product.save();
+    await prisma.product.update({
+      where: { id: product.id },
+      data: {
+      availableStock: product.availableStock - qtyIssued,
+      transactions: {
+        connect: { id: newTransaction.id },
+      },
+      },
+    });
 
     res.status(200).json({ message: "Product issued successfully", product });
   } catch (error) {
@@ -111,7 +118,11 @@ export async function restockProduct(req, res) {
     }
 
     // Find the product by ID
-    const product = await Product.findById(id);
+    const product = await prisma.product.findUnique({
+      where: {
+        id: id
+      }
+    });
 
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
@@ -121,32 +132,35 @@ export async function restockProduct(req, res) {
     const valueInCedi = valueInEuro * cediConversionRate;
 
     // Create a new receipt transaction
-    const newTransaction = {
-      date: new Date(),
+    const newTransaction = await prisma.transaction.create({
+      data: {
       receivedFromIssuedTo: receivedFrom,
       qtyReceived,
       valueInEuro,
       valueInCedi,
       cediConversionRate,
-      InvoiceDate: outOfOrderDate ? new Date(outOfOrderDate) : undefined, // Store the outOfOrderDate if provided
+      outOfOrderDate: outOfOrderDate ? new Date(outOfOrderDate) : undefined, // Store the outOfOrderDate if provided
       availableStock: product.availableStock + qtyReceived,
       stockBalance: product.stockBalance + qtyReceived,
       status: "Receipt",
-    };
-
-    //add to transaction table
-    const transaction = new Transaction(newTransaction);
-    await transaction.save();
-    // Add the transaction to the product's transaction array
-    product.transactions.push(transaction);
+      product: {
+        connect: { id: product.id },
+      },
+      },
+    });
 
     // Update stock levels and selling price
-    product.availableStock += qtyReceived;
-    product.stockBalance += qtyReceived;
-    product.sellingPrice = sellingPrice;
-
-    // Save the updated product
-    await product.save();
+    await prisma.product.update({
+      where: { id: product.id },
+      data: {
+      availableStock: product.availableStock + qtyReceived,
+      stockBalance: product.stockBalance + qtyReceived,
+      sellingPrice: sellingPrice,
+      transactions: {
+        connect: { id: newTransaction.id },
+      },
+      },
+    });
 
     res.status(200).json({
       message: "Product restocked successfully",
@@ -166,7 +180,9 @@ export const updatePickup = async (req, res) => {
     }
 
     // Await the result of the findOne call
-    const transaction = await Transaction.findOne({ orderId: id });
+    const transaction = await prisma.transaction.findUnique({
+      where: { id: id },
+    });
 
     // Check if the transaction is not found
     if (!transaction) {
@@ -174,8 +190,10 @@ export const updatePickup = async (req, res) => {
     }
 
     // Update and save the transaction
-    transaction.pickupConfirmed = true;
-    await transaction.save();
+    await prisma.transaction.update({
+      where: { id: id },
+      data: { pickupConfirmed: true },
+    });
 
     // Respond with success
     return res
@@ -192,10 +210,16 @@ export async function deleteTransaction(req, res) {
     const { productId, transactionId } = req.params;
 
     // Step 1: Fetch only the specific transaction and availableStock
-    const productWithTransaction = await Product.findOne(
-      { _id: productId, "transactions._id": transactionId },
-      { "transactions.$": 1, availableStock: 1 }
-    );
+    const productWithTransaction = await prisma.product.findUnique({
+      where: { id: productId },
+      select: {
+      availableStock: true,
+      transactions: {
+        where: { id: transactionId },
+        take: 1,
+      },
+      },
+    });
 
     if (!productWithTransaction) {
       return res
@@ -226,20 +250,31 @@ export async function deleteTransaction(req, res) {
     }
 
     // Step 3: Update the product atomically
-    await Product.updateOne(
-      { _id: productId },
-      {
-        $pull: { transactions: { _id: transactionId } },
-        $inc: stockUpdate,
-      }
-    );
+    await prisma.product.update({
+      where: { id: productId },
+      data: {
+      transactions: {
+        delete: { id: transactionId },
+      },
+      availableStock: {
+        increment: stockUpdate.availableStock,
+      },
+      stockBalance: {
+        increment: stockUpdate.stockBalance,
+      },
+      },
+    });
 
     // Step 4: Handle order update if necessary
     if (transaction.status === "Issue" && transaction.orderId) {
-      const order = await Order.findById(transaction.orderId);
+      const order = await prisma.order.findUnique({
+      where: { id: transaction.orderId },
+      });
       if (order && order.orderStatus === "Approved") {
-        order.orderStatus = "Pending";
-        await order.save();
+      await prisma.order.update({
+        where: { id: transaction.orderId },
+        data: { orderStatus: "Pending" },
+      });
       }
     }
 

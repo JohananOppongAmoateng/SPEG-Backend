@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { User } from "../models/modelSchema.js";
+import prisma from "../utils/prisma.js";
 
 export const refreshToken = async (req, res) => {
     try {
@@ -30,7 +30,7 @@ export const refreshToken = async (req, res) => {
         });
   
         // Find user by ID from decoded token
-        const user = await User.findById(decoded.id);
+        const user = await prisma.user.findUnique({ where : { id: decoded.id}});
   
         if (!user) {
           console.log("User not found for ID:", decoded.id);
@@ -56,7 +56,7 @@ export const refreshToken = async (req, res) => {
               const tokenData = {
                 user: user.firstName,
                 email: user.email,
-                id: user._id,
+                id: user.id,
                 role: user.role,
               };
   
@@ -88,7 +88,7 @@ export const refreshToken = async (req, res) => {
         const tokenData = {
           user: user.firstName,
           email: user.email,
-          id: user._id,
+          id: user.id,
           role: user.role,
         };
   

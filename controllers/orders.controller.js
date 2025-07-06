@@ -1,7 +1,5 @@
-import { Invoice, Order, User } from "../models/modelSchema.js";
-import { Product } from "../models/modelSchema.js";
-import { createInvoice } from "./invoice.controller.js";
-import axios from "axios";
+import prisma from "../utils/prisma.js";
+
 
 // Create a new Order
 export async function createOrder(req, res) {
@@ -11,7 +9,9 @@ export async function createOrder(req, res) {
     let totalCost = 0;
 
     for (const product of products) {
-      const productDetails = await Product.findById(product.productId);
+      const productDetails = await prisma.product.findUnique({
+        where: { id: product.productId },
+      });
       if (!productDetails) {
         return res.status(404).json({
           message: `Product with ID ${product.productId} not found`,
@@ -20,7 +20,7 @@ export async function createOrder(req, res) {
 
       if (product.quantity > productDetails.availableStock) {
         return res.status(400).json({
-          message: `Insufficient stock for ${productDetails.productName}`,
+          message: `Insufficient stock for ${productDetails.name}`,
         });
       }
 
@@ -28,22 +28,31 @@ export async function createOrder(req, res) {
       totalCost += cost;
       orderProducts.push({
         productId: product.productId,
-        productName: productDetails.productName,
+        productName: productDetails.name,
         quantity: product.quantity,
         unitPrice: productDetails.sellingPrice,
         cost: cost,
       });
     }
 
-    const newOrder = new Order({
-      farmerId,
-      products: orderProducts,
-      orderStatus: "Pending",
-      paymentStatus: "Pending",
-      totalCost: totalCost,
+    const newOrder = await prisma.order.create({
+      data: {
+        farmerId,
+        orderProducts: {
+          create: orderProducts.map((product) => ({
+            productId: product.productId,
+            productName: product.productName,
+            quantity: product.quantity,
+            unitPrice: product.unitPrice,
+            cost: product.cost,
+          })),
+        },
+        orderStatus: "Pending",
+        paymentStatus: "Pending",
+        totalCost: totalCost,
+      },
     });
 
-    await newOrder.save();
     res
       .status(201)
       .json({ message: "Order created successfully", order: newOrder });
@@ -56,7 +65,16 @@ export async function createOrder(req, res) {
 export async function updateOrderStatusToPaid(req, res) {
   try {
     const { orderId } = req.params;
-    const order = await Order.findById(orderId).populate("products.productId");
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+      products: {
+        include: {
+        productId: true,
+        },
+      },
+      },
+    });
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
     }
@@ -69,14 +87,24 @@ export async function updateOrderStatusToPaid(req, res) {
 
     // Update stock levels only after payment confirmation
     for (const product of order.products) {
-      const productDetails = await Product.findById(product.productId._id);
-      productDetails.availableStock -= product.quantity;
-      await productDetails.save();
+      const productDetails = await prisma.product.findUnique({
+        where: { id: product.productId },
+      });
+      await prisma.product.update({
+        where: { id: product.productId },
+        data: {
+          availableStock: productDetails.availableStock - product.quantity,
+        },
+      });
     }
-
-    order.paymentStatus = "Paid";
-    order.orderStatus = "Approved";
-    await order.save();
+    
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+      paymentStatus: "Paid",
+      orderStatus: "Approved",
+      },
+    });
 
     res.status(200).json({
       message: "Order status updated to Paid and Awaiting Collection",
@@ -90,10 +118,21 @@ export async function updateOrderStatusToPaid(req, res) {
 // Get All Orders
 export async function getAllOrders(req, res) {
   try {
-    const orders = await Order.find().populate(
-      "farmerId",
-      "_id farmName farmLocation telNumber email firstName lastName"
-    ); // Added await here
+    const orders = await prisma.order.findMany({
+      include: {
+      farmer: {
+        select: {
+        id: true,
+        farmName: true,
+        farmLocation: true,
+        telNumber: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        },
+      },
+      },
+    });
     return res.status(200).json({
       orders,
     });
@@ -107,12 +146,33 @@ export async function getAllOrders(req, res) {
 export async function getOrdersByFarmerId(req, res) {
   try {
     const { farmerId } = req.params; // Extracting the farmerId from the request parameters
-    const orders = await Order.find({ farmerId })
-      .populate(
-        "farmerId",
-        "_id farmName farmLocation telNumber email firstName lastName"
-      )
-      .populate("products.productId", "name description price"); // Populate product details if needed
+    const orders = await prisma.order.findMany({
+      where: { farmerId: farmerId },
+      include: {
+      farmer: {
+        select: {
+        id: true,
+        farmName: true,
+        farmLocation: true,
+        telNumber: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        },
+      },
+      orderProducts: {
+        include: {
+        product: {
+          select: {
+          name: true,
+          description: true,
+          sellingPrice: true,
+          },
+        },
+        },
+      },
+      },
+    });
 
     if (!orders || orders.length === 0) {
       return res.status(404).json({ message: "No orders found for this user" });
@@ -130,10 +190,22 @@ export async function getOrdersByFarmerId(req, res) {
 export async function getOrderById(req, res) {
   try {
     const { orderId } = req.params;
-    const order = await Order.findById(orderId).populate(
-      "farmerId",
-      "_id farmName farmLocation telNumber email firstName lastName"
-    );
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+      farmer: {
+        select: {
+        id: true,
+        farmName: true,
+        farmLocation: true,
+        telNumber: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        },
+      },
+      },
+    });
 
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
@@ -154,17 +226,34 @@ export async function updateOrder(req, res) {
     const { products, orderStatus, awaitingPickup } = req.body;
 
     // Find the order by ID
-    const order = await Order.findById(orderId);
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+    });
+    
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
     }
 
     // Find the user associated with the order
-    const user = await User.findById(order.farmerId);
+    const user = await prisma.user.findUnique({
+      where: { id: order.farmerId },
+    });
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-
+    // Update order status if provided
+    if (orderStatus) {
+      // If order is rejected, delete it
+      if (orderStatus === "Rejected") {
+        await prisma.order.delete({
+          where: { id: orderId },
+        });
+        return res.status(200).json({
+          message: "Order rejected and deleted successfully",
+        });
+      }
+    }
     // Update products if provided
     if (products && Array.isArray(products) && products.length > 0) {
       const updatedProducts = [];
@@ -177,7 +266,9 @@ export async function updateOrder(req, res) {
           });
         }
 
-        const productDetails = await Product.findById(product.productId);
+        const productDetails = await prisma.product.findUnique({
+          where: { id: product.productId },
+        });
         if (!productDetails) {
           return res.status(404).json({
             message: `Product with ID ${product.productId} not found`,
@@ -204,26 +295,46 @@ export async function updateOrder(req, res) {
       }
 
       // Update order with new products and total cost
-      order.totalCost = totalCost;
-      order.products = updatedProducts;
-    }
-
-    // Update order status if provided
-    if (orderStatus) {
-      order.orderStatus = orderStatus;
-
-      // If order is rejected, delete it
-      if (orderStatus === "Rejected") {
-        await Order.findByIdAndDelete(orderId);
-        return res.status(200).json({
-          message: "Order rejected and deleted successfully",
-        });
-      }
+      // Update the order with new products and total cost
+      await prisma.order.update({
+        where: { id: orderId },
+        data: {
+          orderProducts: {
+        upsert: updatedProducts.map((product) => ({
+          where: { productId: product.productId },
+          update: {
+            quantity: product.quantity,
+            unitPrice: product.unitPrice,
+            cost: product.cost,
+          },
+          create: {
+            productId: product.productId,
+            productName: product.productName,
+            quantity: product.quantity,
+            unitPrice: product.unitPrice,
+            cost: product.cost,
+          },
+        })),
+        deleteMany: {
+          productId: {
+            notIn: updatedProducts.map((product) => product.productId),
+          },
+        },
+          },
+          totalCost: totalCost, // Update total cost
+        },
+      });
+      
     }
 
     // Update pickup status
     if (awaitingPickup && awaitingPickup === "Completed") {
-      order.awaitingPickup = awaitingPickup;
+      await prisma.order.update({
+        where: { id: orderId },
+        data: {
+          awaitingPickup: "Completed",
+        },
+      });
 
       // Use provided products if available, else fall back to order.products
       const productsArray =
@@ -231,7 +342,6 @@ export async function updateOrder(req, res) {
           ? products
           : order.products;
 
-      console.log(productsArray, "this is the product array");
 
       for (const product of productsArray) {
         if (!product?.productId || !product?.quantity) {
@@ -240,9 +350,9 @@ export async function updateOrder(req, res) {
           });
         }
 
-        const productDetails = await Product.findById(product.productId).select(
-          "-transactions"
-        );
+        const productDetails = await prisma.product.findUnique({
+          where: { id: product.productId },
+        });
         console.log(productDetails, "this is the product details");
 
         if (!productDetails) {
@@ -252,17 +362,14 @@ export async function updateOrder(req, res) {
         }
 
         // Deduct stock
-        const newStockBalance =
-          productDetails.stockBalance - product.quantity;
-
-        productDetails.stockBalance = newStockBalance;
-        await productDetails.save();
+        await prisma.product.update({
+          where: { id: product.productId },
+          data: {
+            availableStock: productDetails.availableStock - product.quantity,
+          },
+        });
       }
     }
-
-    // Save updated order
-    await order.save();
-
     res.status(200).json({
       message: "Order updated successfully",
       order,
@@ -279,8 +386,10 @@ export async function updateOrder(req, res) {
 export async function getPendingOrdersCount(req, res) {
   try {
     // Count all orders where orderStatus is "pending"
-    const pendingCount = await Order.countDocuments({
+    const pendingCount = await prisma.order.count({
+      where: {
       orderStatus: "Pending",
+      },
     });
 
     return res.status(200).json({

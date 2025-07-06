@@ -1,4 +1,3 @@
-import { User } from "../models/modelSchema.js";
 import { createTransport } from "nodemailer";
 import dotEnv from "dotenv";
 dotEnv.config();
@@ -11,14 +10,13 @@ export async function sendMail({ email, emailType, userId, site }) {
     const hashedToken = await bcryptjs.hash(userId.toString(), 10);
     let user = "";
     if (emailType === "VERIFY") {
-      user = await User.findOneAndUpdate(
-        { _id: userId },
-        {
+      user = await prisma.user.update({
+        where: { id: userId },
+        data: {
           verifyToken: hashedToken,
-          verifyTokenExpiry: Date.now() + 3600000, // 1 hour expiry
+          verifyTokenExpiry: new Date(Date.now() + 3600000), // 1 hour expiry
         },
-        { new: true }
-      );
+      });
 
       if (!user) {
         throw new Error("User not found");

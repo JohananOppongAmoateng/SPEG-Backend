@@ -23,8 +23,7 @@ export async function addProduct(req, res) {
       data: {
         productName,
       stockKeepingUnit,
-      reOrderLevel,
-      transactions: [],
+      reOrderLevel    
       }
     }
     )
@@ -43,7 +42,11 @@ export async function getAllProducts(req, res) {
   try {
     console.log("product route has been hit");
 
-    const allProducts = await prisma.product.findMany()
+    const allProducts = await prisma.product.findMany({
+      include: {
+      transactions: true,
+      },
+    });
     res.status(200).json({ product: allProducts }); // Use 200 for successful GET requests
   } catch (error) {
     res.status(500).json({ message: "Error getting all products", error });

@@ -82,7 +82,7 @@ export async function createInvoice(req, res) {
                     where: { id: invoiceId },
                     data: {
                         pdfDownloadLink,
-                        status: "Sent",
+                        status: "Pending",
                         emailSent: true,
                     }   
                 })
@@ -126,6 +126,7 @@ export async function updateInvoiceStatus(req, res) {
     try {
         const { invoiceId } = req.params;
         const { status } = req.body;
+        console.log(invoiceId)
 
         // Validate required fields
         if (!status) {
@@ -194,14 +195,11 @@ export async function generateInvoicePDF({ invoiceId, farmerName }) {
         const invoice = await prisma.invoice.findUnique({
             where: { id: invoiceId },
             include: {
-            orderId: {
+            order: {
                 include: {
-                products: {
-                    include: { productId: true }
-                },
-                farmerId: true
-                }
-            }
+                orderProducts: true
+            },        },
+            farmer : true
             }
         });
 
@@ -245,8 +243,8 @@ export async function generateInvoicePDF({ invoiceId, farmerName }) {
         };
 
         // Calculate dynamic spacing based on content
-        const products = invoice.order.products;
-        const farmer = invoice.order.farmer;
+        const products = invoice.order.orderProducts;
+        const farmer = invoice.farmer;
         const rowHeight = 18;
         const tableHeaderHeight = 20;
         const tableBodyHeight = products.length * rowHeight;
@@ -293,8 +291,8 @@ export async function generateInvoicePDF({ invoiceId, farmerName }) {
         doc.text('INVOICE', 40, 110);
         
         applyStyle(styles.normal);
-        doc.text(`#${invoice._id.toString().slice(0,8).toUpperCase()}`, 40, 135)
-           .text(`Order: #${invoice.orderId._id.toString().slice(0,6).toUpperCase()}`, 40, 148);
+        doc.text(`#${invoice.id.toString().slice(0,8).toUpperCase()}`, 40, 135)
+           .text(`Order: #${invoice.order.id.toString()}`, 40, 148);
 
         // Add date and due date
         const issueDate = new Date();

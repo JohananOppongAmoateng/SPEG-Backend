@@ -62,12 +62,8 @@ export async function updateOrderStatusToPaid(req, res) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
-        products: {
-          include: {
-            productId: true,
-          },
+        orderProducts: true
         },
-      },
     });
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
@@ -80,7 +76,7 @@ export async function updateOrderStatusToPaid(req, res) {
     }
 
     // Update stock levels only after payment confirmation
-    for (const product of order.products) {
+    for (const product of order.orderProducts) {
       const productDetails = await prisma.product.findUnique({
         where: { id: product.productId },
       });
@@ -280,6 +276,7 @@ export async function updateOrder(req, res) {
         const cost = product.quantity * productDetails.sellingPrice;
         totalCost += cost;
         updatedProducts.push({
+          id : product.id,
           productId: product.productId,
           productName: productDetails.productName,
           quantity: product.quantity,
@@ -295,7 +292,7 @@ export async function updateOrder(req, res) {
         data: {
           orderProducts: {
             upsert: updatedProducts.map((product) => ({
-              where: { productId: product.productId },
+              where: { id: product.id },
               update: {
                 quantity: product.quantity,
                 unitPrice: product.unitPrice,
@@ -310,8 +307,8 @@ export async function updateOrder(req, res) {
               },
             })),
             deleteMany: {
-              productId: {
-                notIn: updatedProducts.map((product) => product.productId),
+              id: {
+                notIn: updatedProducts.map((product) => product.id),
               },
             },
           },

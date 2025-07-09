@@ -28,7 +28,7 @@ export async function createOrder(req, res) {
       totalCost += cost;
       orderProducts.push({
         productId: product.productId,
-        productName: productDetails.name,
+        productName: productDetails.productName,
         quantity: product.quantity,
         unitPrice: productDetails.sellingPrice,
         cost: cost,
@@ -39,13 +39,7 @@ export async function createOrder(req, res) {
       data: {
         farmerId,
         orderProducts: {
-          create: orderProducts.map((product) => ({
-            productId: product.productId,
-            productName: product.productName,
-            quantity: product.quantity,
-            unitPrice: product.unitPrice,
-            cost: product.cost,
-          })),
+          create: orderProducts
         },
         orderStatus: "Pending",
         paymentStatus: "Pending",
@@ -164,8 +158,7 @@ export async function getOrdersByFarmerId(req, res) {
         include: {
         product: {
           select: {
-          name: true,
-          description: true,
+          productName: true,
           sellingPrice: true,
           },
         },

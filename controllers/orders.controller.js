@@ -62,11 +62,11 @@ export async function updateOrderStatusToPaid(req, res) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
-      products: {
-        include: {
-        productId: true,
+        products: {
+          include: {
+            productId: true,
+          },
         },
-      },
       },
     });
     if (!order) {
@@ -91,12 +91,12 @@ export async function updateOrderStatusToPaid(req, res) {
         },
       });
     }
-    
+
     await prisma.order.update({
       where: { id: orderId },
       data: {
-      paymentStatus: "Paid",
-      orderStatus: "Approved",
+        paymentStatus: "Paid",
+        orderStatus: "Approved",
       },
     });
 
@@ -114,17 +114,17 @@ export async function getAllOrders(req, res) {
   try {
     const orders = await prisma.order.findMany({
       include: {
-      farmer: {
-        select: {
-        id: true,
-        farmName: true,
-        farmLocation: true,
-        telNumber: true,
-        email: true,
-        firstName: true,
-        lastName: true,
+        farmer: {
+          select: {
+            id: true,
+            farmName: true,
+            farmLocation: true,
+            telNumber: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
         },
-      },
       },
     });
     return res.status(200).json({
@@ -143,27 +143,27 @@ export async function getOrdersByFarmerId(req, res) {
     const orders = await prisma.order.findMany({
       where: { farmerId: farmerId },
       include: {
-      farmer: {
-        select: {
-        id: true,
-        farmName: true,
-        farmLocation: true,
-        telNumber: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        },
-      },
-      orderProducts: {
-        include: {
-        product: {
+        farmer: {
           select: {
-          productName: true,
-          sellingPrice: true,
+            id: true,
+            farmName: true,
+            farmLocation: true,
+            telNumber: true,
+            email: true,
+            firstName: true,
+            lastName: true,
           },
         },
+        orderProducts: {
+          include: {
+            product: {
+              select: {
+                productName: true,
+                sellingPrice: true,
+              },
+            },
+          },
         },
-      },
       },
     });
 
@@ -186,17 +186,18 @@ export async function getOrderById(req, res) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
-      farmer: {
-        select: {
-        id: true,
-        farmName: true,
-        farmLocation: true,
-        telNumber: true,
-        email: true,
-        firstName: true,
-        lastName: true,
+        farmer: {
+          select: {
+            id: true,
+            farmName: true,
+            farmLocation: true,
+            telNumber: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
         },
-      },
+        orderProducts: true,
       },
     });
 
@@ -222,7 +223,7 @@ export async function updateOrder(req, res) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
     });
-    
+
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
     }
@@ -293,31 +294,31 @@ export async function updateOrder(req, res) {
         where: { id: orderId },
         data: {
           orderProducts: {
-        upsert: updatedProducts.map((product) => ({
-          where: { productId: product.productId },
-          update: {
-            quantity: product.quantity,
-            unitPrice: product.unitPrice,
-            cost: product.cost,
-          },
-          create: {
-            productId: product.productId,
-            productName: product.productName,
-            quantity: product.quantity,
-            unitPrice: product.unitPrice,
-            cost: product.cost,
-          },
-        })),
-        deleteMany: {
-          productId: {
-            notIn: updatedProducts.map((product) => product.productId),
-          },
-        },
+            upsert: updatedProducts.map((product) => ({
+              where: { productId: product.productId },
+              update: {
+                quantity: product.quantity,
+                unitPrice: product.unitPrice,
+                cost: product.cost,
+              },
+              create: {
+                productId: product.productId,
+                productName: product.productName,
+                quantity: product.quantity,
+                unitPrice: product.unitPrice,
+                cost: product.cost,
+              },
+            })),
+            deleteMany: {
+              productId: {
+                notIn: updatedProducts.map((product) => product.productId),
+              },
+            },
           },
           totalCost: totalCost, // Update total cost
         },
       });
-      
+
     }
 
     // Update pickup status
@@ -381,7 +382,7 @@ export async function getPendingOrdersCount(req, res) {
     // Count all orders where orderStatus is "pending"
     const pendingCount = await prisma.order.count({
       where: {
-      orderStatus: "Pending",
+        orderStatus: "Pending",
       },
     });
 
@@ -393,6 +394,44 @@ export async function getPendingOrdersCount(req, res) {
     return res.status(500).json({
       success: false,
       message: error.message,
+    });
+  }
+}
+
+// Get Pending Invoices for Transactions
+export async function getPendingInvoicesAndUnconfirmedPickups(req, res) {
+  try {
+    // Fetch pending invoices and unconfirmed pickups in a single query
+    const [pendingInvoices, unconfirmedPickups] = await Promise.all([
+      prisma.transaction.groupBy({
+        by: ['productName'],
+        where: {
+          invoiceStatus: "Pending",
+        },
+        _sum: {
+          valueInEuro: true,
+        },
+      }),
+      prisma.transaction.groupBy({
+        by: ['productName'],
+        where: {
+          pickupConfirmed: false,
+          status: "Issue",
+        },
+        _count: {
+          id: true,
+        },
+      }),
+    ]);
+
+    res.status(200).json({
+      pendingInvoices,
+      unconfirmedPickups,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error fetching pending invoices and unconfirmed pickups",
+      error,
     });
   }
 }

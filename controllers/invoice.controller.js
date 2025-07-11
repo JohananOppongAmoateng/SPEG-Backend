@@ -37,6 +37,17 @@ export async function createInvoice(req, res) {
             });
         }
 
+        const invoice = await prisma.invoice.findFirst({
+            where: { orderId }
+        });
+
+        if (invoice) {
+            return res.status(409).json({
+                message: "Invoice already exists for this order",
+                existingInvoiceId: invoice.id
+            });
+        }
+
         // Step 2: Create and save the invoice
         const savedInvoice = await prisma.invoice.create({
             data : {
@@ -221,7 +232,14 @@ export async function generateInvoicePDF({ invoiceId, farmerName }) {
         const CONTENT_WIDTH = PAGE_WIDTH - (MARGIN * 2);
 
         const __dirname = path.dirname(fileURLToPath(import.meta.url));
-        const filePath = path.join(__dirname, "../public/invoices", `invoice_${invoiceId}.pdf`);
+        const invoicesDir = path.join(__dirname, "../public/invoices");
+
+        // Ensure the directory exists
+        if (!fs.existsSync(invoicesDir)) {
+        fs.mkdirSync(invoicesDir, { recursive: true });
+        }
+        
+        const filePath = path.join(invoicesDir, `invoice_${invoiceId}.pdf`);
         doc.pipe(fs.createWriteStream(filePath));
 
         // Define colors for a professional look

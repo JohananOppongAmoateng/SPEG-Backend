@@ -373,7 +373,6 @@ export async function updateOrder(req, res) {
   }
 }
 
-
 export async function getPendingOrdersCount(req, res) {
   try {
     // Count all orders where orderStatus is "pending"

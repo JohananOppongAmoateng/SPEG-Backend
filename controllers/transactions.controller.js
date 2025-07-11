@@ -15,6 +15,9 @@ export async function issueProduct(req, res) {
     const product = await prisma.product.findUnique({
       where: {
         id: id
+      },
+      include: {
+        transactions : true
       }
     });
 

@@ -205,7 +205,7 @@ export const updatePickup = async (req, res) => {
       data: { pickupConfirmed: true , 
         order : {
           update: {
-            awaitingPickup : true
+            awaitingPickup
           },
         }
        },

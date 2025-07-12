@@ -179,6 +179,12 @@ export const updatePickup = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const { awaitingPickup } = req.body;
+
+    if (awaitingPickup === undefined) {
+      return res.status(400).json({ message: "Please provide awaitingPickup status" });
+    }
+
     if (!id) {
       return res.status(400).json({ message: "Please provide an order ID" });
     }
@@ -195,8 +201,14 @@ export const updatePickup = async (req, res) => {
 
     // Update and save the transaction
     await prisma.transaction.update({
-      where: { id: id },
-      data: { pickupConfirmed: true },
+      where: { id: transaction.id },
+      data: { pickupConfirmed: true , 
+        order : {
+          update: {
+            awaitingPickup : true
+          },
+        }
+       },
     });
 
     // Respond with success

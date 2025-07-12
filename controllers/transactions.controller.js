@@ -64,12 +64,11 @@ export async function issueProduct(req, res) {
     // Create a new issue transaction
     const newTransaction = await prisma.transaction.create({
       data: {
-      date: new Date(),
       receivedFromIssuedTo,
+      outOfOrderDate: new Date(), // Set the current date as outOfOrderDate
       qtyIssued,
       proForma: qtyIssued,
       invoiced: invoicedAmount,
-      collected: 0,
       farmerBalance: qtyIssued,
       availableStock: product.availableStock - qtyIssued,
       stockBalance: product.stockBalance,
@@ -78,11 +77,13 @@ export async function issueProduct(req, res) {
       status: "Issue",
       invoiceStatus: "Paid",
       pickupConfirmed: false,
-      orderId: orderId || null,
       cediConversionRate: cediConversionRate, // Store the used conversion rate
       product: {
         connect: { id: product.id },
       },
+      order: {
+        connect: { id: orderId }, // Connect to the order if provided
+      }
       },
     });
 

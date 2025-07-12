@@ -185,7 +185,7 @@ export const updatePickup = async (req, res) => {
 
     // Await the result of the findOne call
     const transaction = await prisma.transaction.findUnique({
-      where: { id: id },
+      where: { orderId: id },
     });
 
     // Check if the transaction is not found

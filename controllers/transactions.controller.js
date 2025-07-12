@@ -217,6 +217,7 @@ export const updatePickup = async (req, res) => {
       .json({ message: "Pickup successfully confirmed", transaction });
   } catch (error) {
     // Better error message with status 500
+    console.log(error)
     res.status(500).json({ message: "Error updating pickup", error });
   }
 };

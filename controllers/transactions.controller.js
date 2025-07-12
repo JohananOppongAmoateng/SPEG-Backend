@@ -190,7 +190,7 @@ export const updatePickup = async (req, res) => {
     }
 
     // Await the result of the findOne call
-    const transaction = await prisma.transaction.findUnique({
+    const transaction = await prisma.transaction.findFirst({
       where: { orderId: id },
     });
 

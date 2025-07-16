@@ -327,20 +327,7 @@ export async function updateOrder(req, res) {
         },
       });
 
-      // Use provided products if available, else fall back to order.products
-      const productsArray =
-        Array.isArray(products) && products.length > 0
-          ? products
-          : order.products;
-
-
-      for (const product of productsArray) {
-        if (!product?.productId || !product?.quantity) {
-          return res.status(400).json({
-            message: "Invalid product data during pickup update.",
-          });
-        }
-
+      for (const product of order.orderProducts) {
         const productDetails = await prisma.product.findUnique({
           where: { id: product.productId },
         });
@@ -356,7 +343,7 @@ export async function updateOrder(req, res) {
         await prisma.product.update({
           where: { id: product.productId },
           data: {
-            availableStock: productDetails.availableStock - product.quantity,
+            availableStock: productDetails.stockBalance - product.quantity,
           },
         });
       }

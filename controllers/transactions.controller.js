@@ -70,7 +70,7 @@ export async function issueProduct(req, res) {
       proForma: qtyIssued,
       invoiced: invoicedAmount,
       farmerBalance: qtyIssued,
-      availableStock: product.availableStock - qtyIssued,
+      availableStock: product.availableStock,
       stockBalance: product.stockBalance,
       valueInEuro: invoicedAmount,
       valueInCedi: Number((invoicedAmount * cediConversionRate).toFixed(2)),
@@ -91,7 +91,6 @@ export async function issueProduct(req, res) {
     await prisma.product.update({
       where: { id: product.id },
       data: {
-      availableStock: product.availableStock - qtyIssued,
       transactions: {
         connect: { id: newTransaction.id },
       },

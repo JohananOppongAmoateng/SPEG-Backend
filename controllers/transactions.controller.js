@@ -65,7 +65,6 @@ export async function issueProduct(req, res) {
     const newTransaction = await prisma.transaction.create({
       data: {
       receivedFromIssuedTo,
-      outOfOrderDate: new Date(), // Set the current date as outOfOrderDate
       qtyIssued,
       proForma: qtyIssued,
       invoiced: invoicedAmount,
@@ -113,7 +112,7 @@ export async function restockProduct(req, res) {
       valueInEuro,
       sellingPrice,
       cediConversionRate,
-      outOfOrderDate,
+      invoiceDate,
     } = req.body;
 
     if (!id) {
@@ -142,7 +141,7 @@ export async function restockProduct(req, res) {
       valueInEuro,
       valueInCedi,
       cediConversionRate,
-      outOfOrderDate: outOfOrderDate ? new Date(outOfOrderDate) : undefined, // Store the outOfOrderDate if provided
+      invoiceDate: invoiceDate ? new Date(invoiceDate) : undefined, // Store the invoiceDate if provided
       availableStock: product.availableStock + qtyReceived,
       stockBalance: product.stockBalance + qtyReceived,
       status: "Receipt",

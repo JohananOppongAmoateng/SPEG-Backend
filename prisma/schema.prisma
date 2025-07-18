@@ -62,7 +62,7 @@ model Transaction {
   pickupConfirmed     Boolean          @default(false)
   valueInEuro         Float            @default(0)
   valueInCedi         Float            @default(0)
-  outOfOrderDate      DateTime?
+  invoiceDate      DateTime?
   orderId             String?
   productId           String?
   order               Order?           @relation(fields: [orderId], references: [id])
@@ -107,7 +107,7 @@ model Invoice {
   currency        String          @default("Euro")
   farmerName      String?
   totalAmount     Float
-  outOfOrderDate  DateTime?
+  invoiceDate  DateTime?
   status          InvoiceStatus   @default(Pending)
   pdfDownloadLink String          @default("")
   emailSent       Boolean         @default(false)

@@ -218,6 +218,9 @@ export async function updateOrder(req, res) {
     // Find the order by ID
     const order = await prisma.order.findUnique({
       where: { id: orderId },
+      include: {
+        orderProducts: true,
+        },
     });
 
     if (!order) {
@@ -327,7 +330,11 @@ export async function updateOrder(req, res) {
         },
       });
 
-      for (const product of order.orderProducts) {
+      const orderProducts = await prisma.orderProduct.findMany({
+        where: { orderId: orderId },
+      });
+
+      for (const product of orderProducts) {
         const productDetails = await prisma.product.findUnique({
           where: { id: product.productId },
         });
@@ -335,7 +342,7 @@ export async function updateOrder(req, res) {
 
         if (!productDetails) {
           return res.status(404).json({
-            message: `Product with ID ${product.productId} not found`,
+        message: `Product with ID ${product.productId} not found`,
           });
         }
 
@@ -381,39 +388,45 @@ export async function getPendingOrdersCount(req, res) {
   }
 }
 
-// Get Pending Invoices for Transactions
-export async function getPendingInvoicesAndUnconfirmedPickups(req, res) {
+// Get Pending Invoices
+export async function getPendingInvoices(req, res) {
   try {
-    // Fetch pending invoices and unconfirmed pickups in a single query
-    const [pendingInvoices, unconfirmedPickups] = await Promise.all([
-      prisma.transaction.groupBy({
-        by: ['productName'],
-        where: {
-          invoiceStatus: "Pending",
-        },
-        _sum: {
-          valueInEuro: true,
-        },
-      }),
-      prisma.transaction.groupBy({
-        by: ['productName'],
-        where: {
-          pickupConfirmed: false,
-          status: "Issue",
-        },
-        _count: {
+    // Fetch pending invoices
+    const products = await prisma.product.findMany(
+      {
+        select: {
           id: true,
+          productName: true,
+          orderProducts: {
+            where: {
+              order: {
+                invoice: { status: "Pending" },
+              },
+            },
+            select: {
+              cost: true,
+            },
+ 
         },
-      }),
-    ]);
+      },
+    }
+    );
+
+    const payload = products.map((p) => {
+      const sum   = p.orderProducts.reduce((acc, op) => acc + op.cost, 0);
+      return {
+        id: p.id,
+        productName: p.productName,
+        pendingInvoice: sum,  // round to 2dp if you like
+      };
+    });
 
     res.status(200).json({
-      pendingInvoices,
-      unconfirmedPickups,
+      payload
     });
   } catch (error) {
     res.status(500).json({
-      message: "Error fetching pending invoices and unconfirmed pickups",
+      message: "Error fetching pending invoices",
       error,
     });
   }

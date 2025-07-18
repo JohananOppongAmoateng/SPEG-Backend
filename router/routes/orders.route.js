@@ -7,7 +7,7 @@ import {
   getPendingOrdersCount,
   updateOrder,
   updateOrderStatusToPaid,
-  getPendingInvoicesAndUnconfirmedPickups,
+  getPendingInvoices,
 } from "../../controllers/orders.controller.js";
 const router = Router();
 
@@ -22,6 +22,6 @@ router.get("/:orderId", getOrderById); // Get order details by order ID
 
 router.patch("/:orderId", updateOrder);
 
-router.get("/pendingInvoicesAndUnconfirmedPickups", getPendingInvoicesAndUnconfirmedPickups);
+router.get("/pendingInvoices", getPendingInvoices);
 
 export default router;

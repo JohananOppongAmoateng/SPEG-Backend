@@ -383,7 +383,7 @@ export async function generateInvoicePDF({ invoiceId, farmerName }) {
 
             // Product name
             doc.text(
-                product.productId.productName,
+                product.productName,
                 xPos + 5,
                 yPosition + 5,
                 { width: columns[0].width - 10 }

@@ -113,22 +113,37 @@ export async function updateProduct(req, res) {
 // Delete a product
 export async function deleteProduct(req, res) {
   try {
-    // Added await for the database connection
     const { id } = req.params;
 
     if (!id) {
       return res.status(400).json({ message: "Please provide product id" });
     }
 
-    const deletedProduct = await prisma.product.delete({
-      where : {
-        id: id
-      }
-    }); // Added await
+    // Check if the product has associated orderProducts using include
+    const product = await prisma.product.findUnique({
+      where: {
+        id: id,
+      },
+      include: {
+        orderProducts: true,
+      },
+    });
 
-    if (!deletedProduct) {
-      return res.status(404).json({ message: "Product not found" }); // Use 404 for not found
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
     }
+
+    if (product.orderProducts.length > 0) {
+      return res.status(400).json({
+        message: "Cannot delete product. There are associated orderProducts.",
+      });
+    }
+
+    await prisma.product.delete({
+      where: {
+        id: id,
+      },
+    });
 
     res.status(200).json({
       message: "Product deleted successfully",

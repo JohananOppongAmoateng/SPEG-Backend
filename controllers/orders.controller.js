@@ -350,7 +350,7 @@ export async function updateOrder(req, res) {
         await prisma.product.update({
           where: { id: product.productId },
           data: {
-            availableStock: productDetails.stockBalance - product.quantity,
+            stockBalance: productDetails.stockBalance - product.quantity,
           },
         });
       }

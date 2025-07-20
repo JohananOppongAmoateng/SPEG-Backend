@@ -316,7 +316,7 @@ export async function updateOrder(req, res) {
             },
           },
           totalCost: totalCost, // Update total cost
-          orderStatus: orderStatus
+          orderStatus: "Approved", // Set order status to Approved
         },
       });
 

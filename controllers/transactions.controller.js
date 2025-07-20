@@ -198,15 +198,9 @@ export const updatePickup = async (req, res) => {
     }
 
     // Update and save the transaction
-    await prisma.transaction.update({
-      where: { id: transaction.id },
-      data: { pickupConfirmed: true , 
-        order : {
-          update: {
-            awaitingPickup
-          },
-        }
-       },
+    await prisma.transaction.updateMany({
+      where: { orderId: id},
+      data: { pickupConfirmed: true}
     });
 
     // Respond with success

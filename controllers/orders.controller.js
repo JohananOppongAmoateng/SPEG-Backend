@@ -316,6 +316,7 @@ export async function updateOrder(req, res) {
             },
           },
           totalCost: totalCost, // Update total cost
+          orderStatus: orderStatus
         },
       });
 
@@ -392,25 +393,23 @@ export async function getPendingOrdersCount(req, res) {
 export async function getPendingInvoices(req, res) {
   try {
     // Fetch pending invoices
-    const products = await prisma.product.findMany(
-      {
+    const products = await prisma.product.findMany({
+      select: {
+      id: true,
+      productName: true,
+      orderProducts: {
+        where: {
+        order: {
+          orderStatus: "Approved",
+          paymentStatus: "Pending",
+        },
+        },
         select: {
-          id: true,
-          productName: true,
-          orderProducts: {
-            where: {
-              order: {
-                invoice: { status: "Pending" },
-              },
-            },
-            select: {
-              cost: true,
-            },
- 
+        cost: true,
         },
       },
-    }
-    );
+      },
+    });
 
     const payload = products.map((p) => {
       const sum   = p.orderProducts.reduce((acc, op) => acc + op.cost, 0);

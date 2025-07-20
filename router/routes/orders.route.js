@@ -22,6 +22,6 @@ router.get("/:orderId", getOrderById); // Get order details by order ID
 
 router.patch("/:orderId", updateOrder);
 
-router.get("/pendingInvoices", getPendingInvoices);
+router.get("/pending/invoices", getPendingInvoices);
 
 export default router;

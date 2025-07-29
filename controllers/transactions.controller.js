@@ -200,10 +200,13 @@ export const updatePickup = async (req, res) => {
     // Update and save the transaction
     await prisma.transaction.update({
       where: { id: transaction.id },
-      data: { pickupConfirmed: true , 
+      data: { 
+        pickupConfirmed: true , 
+        collected: transaction.farmerBalance,
+        farmerBalance: 0,
         order : {
           update: {
-            awaitingPickup
+            awaitingPickup,
           },
         }
        },

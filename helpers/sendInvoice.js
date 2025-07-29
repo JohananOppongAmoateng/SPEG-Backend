@@ -36,7 +36,7 @@ export async function sendInvoiceEmail({  email, invoiceId, pdfPath ,farmerName 
                         We appreciate your business and look forward to serving you again.
                     </p>
                     <p style="font-size: 16px; color: #555;">
-                        Should you have any questions, feel free to reach out to us at <a href="mailto:support@spegpine.com" style="color: #228B22; text-decoration: none;">support@spegpine.com</a>.
+                        Should you have any questions, feel free to reach out to us at <a href="mailto:cps@spegpine.com" style="color: #228B22; text-decoration: none;">cps@spegpine.com</a>.
                     </p>
                     <p style="font-size: 16px; color: #555;">Warm regards,<br>The SpegPine Team</p>
                     <div style="text-align: center; margin-top: 30px;">

@@ -28,6 +28,13 @@ export async function userSignIn(req, res) {
             return res.status(401).json({ message: "Incorrect password" });
         }
 
+
+        if (user.emailVerified === false) {
+            return res.status(403).json({
+                message: "Please verify your email before signing in"
+            });
+        }
+
         // Prepare token data
         const tokenData = {
             user: user.firstName,
@@ -138,32 +145,29 @@ export async function userSignUp(req, res) {
             data: newUserData
         });
 
-        console.log(savedUser._id, "id");
+        console.log(savedUser.id, "id");
         // If email sent successfully, return success response
-        return res
-            .status(200)
-            .json({ message: "Sign-up successful", savedUser });
 
-        // try {
-        //     // Send verification email with the saved user's ID
-        //     await sendMail({
-        //         email,
-        //         emailType: "VERIFY",
-        //         userId: savedUser._id
-        //     });
+        try {
+            // Send verification email with the saved user's ID
+            await sendMail({
+                email,
+                emailType: "VERIFY",
+                userId: savedUser.id
+            });
 
-        //     // If email sent successfully, return success response
-        //     return res
-        //         .status(200)
-        //         .json({ message: "Sign-up successful", savedUser });
-        // } catch (error) {
-        //     // Remove user if email sending fails
-        //     await User.findByIdAndDelete(savedUser._id);
-        //     return res.status(500).json({
-        //         message: "Failed to send verification email",
-        //         error: error.message
-        //     });
-        // }
+            // If email sent successfully, return success response
+            return res
+                .status(200)
+                .json({ message: "Sign-up successful", savedUser });
+        } catch (error) {
+            // Remove user if email sending fails
+            await User.findByIdAndDelete(savedUser._id);
+            return res.status(500).json({
+                message: "Failed to send verification email",
+                error: error.message
+            });
+        }
     } catch (error) {
         return res.status(500).json({ message: error.message });
     }

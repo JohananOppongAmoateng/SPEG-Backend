@@ -149,11 +149,13 @@ export async function userSignUp(req, res) {
         // If email sent successfully, return success response
 
         try {
+            let site = `${req.protocol}://${req.get('host')}`
             // Send verification email with the saved user's ID
             await sendMail({
                 email,
                 emailType: "VERIFY",
-                userId: savedUser.id
+                userId: savedUser.id,
+                site: site
             });
 
             // If email sent successfully, return success response
@@ -189,12 +191,13 @@ export const resendEmail = async (req, res) => {
                 .status(404)
                 .json({ message: "User not found", success: false });
         }
-
+        let site = `${req.protocol}://${req.get('host')}`
         // Send verification email
         await sendMail({
             user: user.email,
             emailType: "VERIFY",
-            userId: user._id
+            userId: user.id,
+            site: site
         });
 
         // If email sent successfully, return success response

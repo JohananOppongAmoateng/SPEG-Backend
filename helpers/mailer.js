@@ -73,7 +73,7 @@ export async function sendMail({ email, emailType, userId, site }) {
                     }. This link will expire in 24 hours.
                   </p>
                   <div style="text-align: center; margin: 30px 0;">
-                    <a href="${process.env.DOMAIN}/${
+                    <a href="${site}/${
         emailType === "RESET" ? "resetpwd" : "verify"
       }?token=${encodeURIComponent(
         hashedToken

@@ -22,14 +22,13 @@ export async function sendMail({ email, emailType, userId, site }) {
         throw new Error("User not found");
       }
     } else if (emailType === "RESET") {
-      user = await User.findOneAndUpdate(
-        { _id: userId },
-        {
+      user = await  prisma.user.update({
+        where: { id: userId },
+        data: {
           forgotPasswordToken: hashedToken,
           forgotPasswordTokenExpiry: Date.now() + 3600000, // 1 hour expiry
-        },
-        { new: true }
-      );
+        }
+      });
 
       if (!user) {
         throw new Error("User not found");

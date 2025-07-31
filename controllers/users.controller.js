@@ -161,8 +161,7 @@ export async function userSignUp(req, res) {
                 .status(200)
                 .json({ message: "Sign-up successful", savedUser });
         } catch (error) {
-            // Remove user if email sending fails
-            await User.findByIdAndDelete(savedUser._id);
+            // Remove user if email sending fails  
             return res.status(500).json({
                 message: "Failed to send verification email",
                 error: error.message

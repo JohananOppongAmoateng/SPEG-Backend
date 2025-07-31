@@ -3,6 +3,7 @@ import dotEnv from "dotenv";
 dotEnv.config();
 import smtpTransport from "nodemailer-smtp-transport";
 import bcryptjs from "bcryptjs";
+import prisma from "../utils/prisma.js";
 
 export async function sendMail({ email, emailType, userId, site }) {
   console.log(userId, "id from user");

@@ -2,6 +2,8 @@ import bcryptjs from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { sendMail } from "../helpers/mailer.js";
 import prisma from "../utils/prisma.js";
+import dotEnv from "dotenv";
+dotEnv.config();
 
 export async function userSignIn(req, res) {
     try {

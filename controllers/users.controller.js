@@ -191,7 +191,12 @@ export const resendEmail = async (req, res) => {
                 .status(404)
                 .json({ message: "User not found", success: false });
         }
-        let site = `${req.protocol}://${req.get('host')}`
+        let site;
+          if (user.role === "admin") {
+            site = process.env.ADMIN_FRONTEND_URL; // Change to your admin domain
+          } else {
+            site = process.env.ECORMMERCE_FRONTEND_URL; // Change to your user domain
+          }
         // Send verification email
         await sendMail({
             user: user.email,

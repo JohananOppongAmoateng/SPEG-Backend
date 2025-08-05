@@ -152,7 +152,7 @@ export async function userSignUp(req, res) {
 
         try {
             let site;
-              if (user.role === "admin") {
+              if (savedUser.role === "admin") {
                 site = process.env.ADMIN_FRONTEND_URL; // Change to your admin domain
               } else {
                 site = process.env.ECORMMERCE_FRONTEND_URL; // Change to your user domain

@@ -149,7 +149,12 @@ export async function userSignUp(req, res) {
         // If email sent successfully, return success response
 
         try {
-            let site = `${req.protocol}://${req.get('host')}`
+            let site;
+              if (user.role === "admin") {
+                site = process.env.ADMIN_FRONTEND_URL; // Change to your admin domain
+              } else {
+                site = process.env.ECORMMERCE_FRONTEND_URL; // Change to your user domain
+              }
             // Send verification email with the saved user's ID
             await sendMail({
                 email,

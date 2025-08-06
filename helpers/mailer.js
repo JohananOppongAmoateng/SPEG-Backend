@@ -4,17 +4,20 @@ dotEnv.config();
 import smtpTransport from "nodemailer-smtp-transport";
 import bcryptjs from "bcryptjs";
 import prisma from "../utils/prisma.js";
+import { v4 as uuidv4 } from 'uuid';
 
 export async function sendMail({ email, emailType, userId, site }) {
   console.log(userId, "id from user");
   try {
     const hashedToken = await bcryptjs.hash(userId.toString(), 10);
+    
     let user = "";
     if (emailType === "VERIFY") {
+      const myUUID = uuidv4()
       user = await prisma.user.update({
         where: { id: userId },
         data: {
-          verifyToken: hashedToken,
+          verifyToken: myUUID,
           verifyTokenExpiry: new Date(Date.now() + 3600000), // 1 hour expiry
         },
       });
@@ -23,10 +26,12 @@ export async function sendMail({ email, emailType, userId, site }) {
         throw new Error("User not found");
       }
     } else if (emailType === "RESET") {
+      const forgotPasswordToken = uuidv4()
+      
       user = await  prisma.user.update({
         where: { id: userId },
         data: {
-          forgotPasswordToken: hashedToken,
+          forgotPasswordToken: forgotPasswordToken,
           forgotPasswordTokenExpiry: Date.now() + 3600000, // 1 hour expiry
         }
       });

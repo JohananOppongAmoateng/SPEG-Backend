@@ -426,11 +426,10 @@ export async function resetPwd(req, res) {
 export async function verifyUser(req, res) {
     try {
         const { token } = req.body;
-        const decodedToken = decodeURIComponent(token);
-
+        
         // Check if the token exists in the database
         const user = await prisma.user.findFirst({
-            where: { verifyToken: decodedToken }
+            where: { verifyToken: token }
         });
 
         if (!user) {

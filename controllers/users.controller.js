@@ -451,7 +451,7 @@ export async function verifyUser(req, res) {
         await prisma.user.update({
             where: { id: user.id },
             data: {
-            isVerified: true,
+            emailVerified: true,
             verifyToken: null,
             verifyTokenExpiry: null
             }

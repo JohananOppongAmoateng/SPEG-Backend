@@ -79,10 +79,8 @@ export async function sendMail({ email, emailType, userId, site }) {
                   </p>
                   <div style="text-align: center; margin: 30px 0;">
                     <a href="${site}/${
-        emailType === "RESET" ? "resetpwd" : "verify"
-      }/${encodeURIComponent(
-        hashedToken
-      )}" style="display: inline-block; padding: 14px 28px; color: white; background-color: #228B22; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px; transition: background-color 0.3s ease;">
+        emailType === "RESET" ? "resetpwd/{forgotPasswordToken}" : "verify/{myUUID}"
+      }" style="display: inline-block; padding: 14px 28px; color: white; background-color: #228B22; text-decoration: none; border-radius: 25px; font-weight: bold; font-size: 16px; transition: background-color 0.3s ease;">
                       ${
                         emailType === "RESET"
                           ? "Reset Password"

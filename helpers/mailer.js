@@ -12,8 +12,10 @@ export async function sendMail({ email, emailType, userId, site }) {
     const hashedToken = await bcryptjs.hash(userId.toString(), 10);
     
     let user = "";
+    const myUUID = uuidv4()
+    const forgotPasswordToken = uuidv4()
     if (emailType === "VERIFY") {
-      const myUUID = uuidv4()
+      
       user = await prisma.user.update({
         where: { id: userId },
         data: {
@@ -26,7 +28,7 @@ export async function sendMail({ email, emailType, userId, site }) {
         throw new Error("User not found");
       }
     } else if (emailType === "RESET") {
-      const forgotPasswordToken = uuidv4()
+      
       
       user = await  prisma.user.update({
         where: { id: userId },

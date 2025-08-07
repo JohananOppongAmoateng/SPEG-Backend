@@ -54,7 +54,7 @@ export async function sendMail({ email, emailType, userId, site }) {
     );
 
     const mailOptions = {
-      from: "admin@spegpine.com",
+      from: '"SPEG Email Verification"<cps@spegpine.com>',
       to: email,
       subject: `${
         emailType === "RESET" ? "Reset Your Password" : "Verify Your Email"

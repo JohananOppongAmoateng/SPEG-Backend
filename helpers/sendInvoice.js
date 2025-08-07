@@ -21,7 +21,7 @@ export async function sendInvoiceEmail({  email, invoiceId, pdfPath ,farmerName 
 
         // Mail options with styled HTML and attachment
         const mailOptions = {
-            from: "admin@spegpine.com",
+            from:'"SPEG CENTRAL PURCHASE SYSTEM"<cps@spegpine.com>',
             to: email,
             subject: "Your SpegPine Invoice",
             html: `

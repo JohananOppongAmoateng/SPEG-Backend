@@ -335,7 +335,7 @@ export async function userSignOut(req, res) {
 // forgot  pwd
 export async function forgotPwd(req, res) {
     try {
-        const { email, site } = req.body; // Access JSON data correctly
+        const { email } = req.body; // Access JSON data correctly
 
         // Validate the email
         if (!email) {
@@ -348,8 +348,15 @@ export async function forgotPwd(req, res) {
             return res.status(400).json({ message: "User not found" });
         }
 
+        let site;
+        if (user.role === "admin") {
+            site = process.env.ADMIN_FRONTEND_URL; // Change to your admin domain
+        } else {
+            site = process.env.ECORMMERCE_FRONTEND_URL; // Change to your user domain
+          }
+
         // Send password reset email
-        await sendMail({ email, emailType: "RESET", userId: user._id, site });
+        await sendMail({ email, emailType: "RESET", userId: user.id, site });
 
         return res.status(200).json({
             message: "Password reset link sent to email",

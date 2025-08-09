@@ -432,12 +432,15 @@ export async function resetPwd(req, res) {
 
 export async function verifyUser(req, res) {
     try {
+        console.log("🧪 Received token from frontend:", req.body.token);
         const { token } = req.body;
         
         // Check if the token exists in the database
         const user = await prisma.user.findFirst({
             where: { verifyToken: token }
         });
+        console.log("🧪 Found user:", user);
+
 
         if (!user) {
             return res.status(400).json({
